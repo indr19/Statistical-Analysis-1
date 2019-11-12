@@ -41,6 +41,8 @@ library(dplyr)
 library(ggplot2)
 library(tidyr)
 library(caret)
+library(MASS)
+select <- dplyr::select #unmask select from dplyr
 library(stargazer)
 library(tibble)
 
@@ -110,6 +112,7 @@ y <- data$crmrte
 X <- data[,!names(data) %in% c('county', 
                               'year', 
                               'crmrte',
+                              'density',
                               'west',
                               'central',
                               'urban')]
@@ -145,12 +148,14 @@ For white collar jobs, including government, higher wages are correlated with hi
 
 Interestingly, the police per capita is positively correlated with crime rate. We believe that police density is likely an effect of crime rate and not a cause. Namely, more police area required and therefore hired in areas of more crime. However, the opposite may also be true. The fact that there's more police could mean that more crime is detected and responded to, increasing the recorded number of criminal cases and perceived rate of crime. In addition, there is also bound to be a tipping point. If the density of police is extremely high, that likely acts as a major deterrent for criminals. We belive this will be an important predictor of crime rate.
 
+#need to perform automated residual detection
+
 In order to detect outliers in our data that may greatly influence our prediction model, we will perform pairwise correlation for all numerical variables with the crimerate, and determine the Cook's distance for all data points in the regression. Any variable for which there contains one more data points with a Cook's distance greater than or equal to 1 are typically considered influential outliers. These will all be examined closely as part of our EDA.
 
 ```{r }
 cooks.outliers <- data.frame(cor_variable = character(), 
                   distance = c(),
-                  data.points = c())
+                  county = c())
 
 for (var in names(X)) {
   mod <- lm(y ~ X[, var])
@@ -160,7 +165,7 @@ for (var in names(X)) {
   if (length(influential_outliers > 1)) {
   cooks.outliers <- rbind(cooks.outliers, data.frame(cor_variable = var,
                                    distance = cooks.distances[influential_outliers],
-                                   data.points = influential_outliers)) 
+                                   county = influential_outliers)) 
   }
 }
 
@@ -168,32 +173,40 @@ print(cooks.outliers)
 ```
 #explain cook's distance a bit more
 
-With these variables, rather than hand-selecting the best set, we first perform backward stepwise model selection with AIC as the criteria to find one possible solution. 
+We can see that there are 3 influential outliers, that show up in separate correlations. 
+
+#deal with each of these outliers
+
+With these variables, to find the best optimal set, we first perform backward stepwise model selection with AIC as the criteria to find one possible solution. 
 
 #EXPLAIN STEPWISE REGRESSION FURTHER.
 
 #EDA on each of these; some of the probabilities are greater than 1; explain that these actually aren't a probability. LOOK FOR OUTLIERS.
 
 ```{r }
-data$prbconv_offense <- data$prbarr * data$prbconv
-data$prbpris_offense <- data$prbconv_offense * data$prbpris
+X$prbconv_offense <- X$prbarr * X$prbconv
+X$prbpris_offense <- X$prbconv_offense * X$prbpris
+X <- X[-2:-3] #remove original prbarr, prbpris variable in factor of transformed
 
-nonwage_variables <- c('prbarr', 'prbconv', 'prbpris', 'avgsen',
-                       'polpc',
-                       'pctymle', 'pctmin80')
+train_X <- cbind(X, C)
+#nonwage_variables <- c('prbarr', 'prbconv', 'prbpris', 'avgsen',
+#                       'polpc',
+#                       'pctymle', 'pctmin80')
 
-wage_variables <- c('wtrd', 'wfir', 'wser', 'wfed', 'wsta', 'wloc',
-                    'wcon', 'wtuc', 'wmfg')
+#wage_variables <- c('wtrd', 'wfir', 'wser', 'wfed', 'wsta', 'wloc',
+#                    'wcon', 'wtuc', 'wmfg')
 
-X_non_wage <- data[, names(data) %in% nonwage_variables]
-X_wage <- lapply(data[, names(data) %in% wage_variables], log)
+#X_non_wage <- data[, names(data) %in% nonwage_variables]
+#X_wage <- lapply(data[, names(data) %in% wage_variables], log)
 
-X_stepwise_set1 <- cbind(X_non_wage, X_wage)
+#X_stepwise_set1 <- cbind(X_non_wage, X_wage)
 
-model <- lm(y ~ ., data=X_stepwise_set1)
-AIC(model)
+model_upper <- lm(y ~ ., data=train_X)
+model_lower <- lm(y ~ 1, data=train_X)
 
-AIC.min_model <- stepAIC(model, trace = )
+AIC.min_model <- stepAIC(model_upper, 
+                         trace = FALSE, 
+                         direction = 'backward', 
+                         scope = list(upper=model_upper,lower=model_lower))
 summary(AIC.min_model)$r.squared
-AIC(AIC.min_model)
 ```
