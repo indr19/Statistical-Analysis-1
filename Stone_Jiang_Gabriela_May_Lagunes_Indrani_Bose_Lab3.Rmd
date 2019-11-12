@@ -9,12 +9,40 @@ output:
     df_print: paged
 ---
 
+Strategy:
+1. eliminate variables (year, county)
+2. look at categorical variables (urban, west, central)
+
+3. Urban and west very important (density directly related to this, so won't consider it); central is not; HOW TO DEAL WITH THESE? regress on them directly? Or separate them out into two different groups?
+
+4. Regression of each variable on crime rate; do outlier detection (Cook's distance) and deal with outliers using domain knowledge
+
+OUTLIERS!
+
+WHICH APPROACH? Two approaches:
+1. hand pick variables and run regression
+
+2. Run AIC minimization (multiple times) and explain why the main variables may come about. train function in caret. NEED TO DO EDA on each variable. Check that standarized residuals fall within 1 STD. Outlier detection with Cook's distance.
+
+BALANCE BETWEEN THROWING AWAY HIGHLY CORRELATED VARIABLES and KEEPING THEM.
+
+WHEN TO TRANSFORM VARIABLES?
+
+7. train/dev/test? on model generalization? 1000 fold validation?
+
+
+START OF REPORT BELOW:
+
+
 The provided data needed cleaning. We need to omit the last rows of the csv since they do not contain data. When we check for duplicated rows, there was one county (193) which was repeated twice. We also checked that all of the values were numerical. This was note the case for the prbconv variable (it was stored as a factor due to omitted rows having non-numerical values). This was converted to numerical.
 
 ```{r }
 library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(caret)
+library(stargazer)
 library(tibble)
-library(MASS)
 
 setwd("~/Desktop/Stone/Berkeley_MIDS/Statistics/Labs/Lab_3")
 full_data <- read.csv('crime_v2.csv')
@@ -36,9 +64,44 @@ for (field in names(data)) {
 Next, our independent variable of interest is crime rate (crmrte). Our goal is to find the best possible causal predictors for crime rate. We first identify columns for which believe may be possible candidates. 
 
 County and year are identifiers and are not relevant to the study.
-West/Central/Urban are categorical and... 
-#(WILL BE ADDRESSED LATER)
-All other variables are numeric and possible candidates.
+West/Central/Urban are categorical variables which have been one-hot encoded. These can be used directly in the regression. We can first see whether the distribution of crime rate is different depending on the location (west vs central) and whether the county is urban. 
+
+```{r }
+C <- data[, c('west', 'central', 'urban')]
+
+df.categorical <- data[, c('crmrte', 'west', 'central', 'urban')]
+colnames(df.categorical) <- c('crmrte', '2. West', '1. Central', '3. Urban')
+dt_long <- gather(df.categorical, key, value, -crmrte)
+
+ggplot(dt_long, aes(x = crmrte, y = factor(value))) +
+  geom_point() +
+  facet_grid(. ~ key) +
+  theme_classic()+
+  theme(plot.title = element_text(hjust = 0.5))+
+  labs(title="Crime rate distribution for central, west, and urban",
+       x='Crime rate', 
+       y = "County belongs to category?") +
+  scale_y_discrete(breaks=c(0,1), labels=c("False","True"))
+```
+
+We can see that for Central versus not Central N.C., the crime rate distribution is relatively even. Counties in Western N.C. appear to have less crime on average than those labeled as not Western. Counties labeled as Urban have more crime on average than those not. We see definitive summaries below for the urban and west variables below.
+
+```{r }
+u <- data %>% 
+  group_by(urban) %>% 
+  summarise(mean_crime_rate = mean(crmrte)) %>%
+  as.data.frame()
+u$urban <- c('N', 'Y')
+w <- data %>% 
+  group_by(west) %>% 
+  summarise(mean_crime_rate = mean(crmrte)) %>%
+  as.data.frame()
+w$west <- c('N', 'Y')
+print(u)
+print(w)
+```
+
+All other variables are numeric and are also possible candidates.
 
 First, we wanted to get a sense of crmrte correlation with all numeric variables. We also parse our data into X (numeric variables) and y (crmrte)
 
@@ -64,23 +127,46 @@ for (x in names(X)) {
 }
 
 cor_df <- arrange(cor_df, desc(crmrte_cor))
+print(cor_df)
 ```
 
-It should be no surprise that density is the best solo predictor of crime rate. Highly dense population areas present more opportunities for crime, as well as a larger population of poorer individuals. ETC. We believe this variable is problematic for a causal model however because it obsorbs the causality from other variables. It DOES suggest that policies in more densely populated areas are likely more fruitful than sparsely populated areas.
+It should be no surprise that density is the best solo predictor of crime rate. Highly dense population areas present more opportunities for crime, as well as a larger population of poorer individuals. We believe this variable is problematic for a causal model however because it obsorbs the causality from other variables. It does suggest that policies in more densely populated areas are likely more fruitful than sparsely populated areas.
+#ETC. 
+
 
 First, we would like to select the variables we think most likely cause crime. 
 
-The first is the probability variables of arrest, conviction and prison sentence. These variables constitute the "fear factors;" namely, we believe the higher the chance someone believes they will be arrested, convicted, or sent to prison, the less likely they will commit a crime. Also, the more severely they believe the punishment to be (prison day sentences), the less likely they will commit a crime. Note that convicted, and sent to prison, variables will be converted to ratio of offenses like arrested (currently, they are in terms of the previous variable).
+The first is the probability variables of arrest, conviction and prison sentence. These variables constitute the "fear factors;" namely, we believe the higher the chance someone believes they will be arrested, convicted, or sent to prison, the less likely they will commit a crime. Also, the more severely they believe the punishment to be (prison day sentences), the less likely they will commit a crime. Note that convicted is currently defined as convictions versus number of arrests. This variable will be converted to convictions versus offences, which is a comparable ratio as the arrested variable. The same goes for prison.
 
 The next is the wage variables. For blue collar jobs that are mostly manual labor, namely, construction, transportation/utilities/communication, and manufacturing, the higher the wage, the less affordable employees are, and as a result, most likely correlate with larger unemployed workforce. This especially affects lower education level young males, and possibly the minority populations who may come from socioeconomically disadvantaged backgrounds.
 
 For white collar jobs, including government, higher wages are correlated with higher crime rates. 
 #FIND REASON WHY?
 
-We will also take a log of wage.
-#Explain this further
-
 Interestingly, the police per capita is positively correlated with crime rate. We believe that police density is likely an effect of crime rate and not a cause. Namely, more police area required and therefore hired in areas of more crime. However, the opposite may also be true. The fact that there's more police could mean that more crime is detected and responded to, increasing the recorded number of criminal cases and perceived rate of crime. In addition, there is also bound to be a tipping point. If the density of police is extremely high, that likely acts as a major deterrent for criminals. We belive this will be an important predictor of crime rate.
+
+In order to detect outliers in our data that may greatly influence our prediction model, we will perform pairwise correlation for all numerical variables with the crimerate, and determine the Cook's distance for all data points in the regression. Any variable for which there contains one more data points with a Cook's distance greater than or equal to 1 are typically considered influential outliers. These will all be examined closely as part of our EDA.
+
+```{r }
+cooks.outliers <- data.frame(cor_variable = character(), 
+                  distance = c(),
+                  data.points = c())
+
+for (var in names(X)) {
+  mod <- lm(y ~ X[, var])
+  cooks.distances <- cooks.distance(mod)
+  influential_outliers <- names(cooks.distances)[cooks.distances >= 1]
+  
+  if (length(influential_outliers > 1)) {
+  cooks.outliers <- rbind(cooks.outliers, data.frame(cor_variable = var,
+                                   distance = cooks.distances[influential_outliers],
+                                   data.points = influential_outliers)) 
+  }
+}
+
+print(cooks.outliers)
+```
+#explain cook's distance a bit more
 
 With these variables, rather than hand-selecting the best set, we first perform backward stepwise model selection with AIC as the criteria to find one possible solution. 
 
@@ -107,7 +193,7 @@ X_stepwise_set1 <- cbind(X_non_wage, X_wage)
 model <- lm(y ~ ., data=X_stepwise_set1)
 AIC(model)
 
-AIC.min_model <- stepAIC(model, trace = FALSE)
+AIC.min_model <- stepAIC(model, trace = )
 summary(AIC.min_model)$r.squared
 AIC(AIC.min_model)
 ```

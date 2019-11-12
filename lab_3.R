@@ -9,6 +9,9 @@
 #PCA analysis on the data 
 #stepwise regression CARET package
 
+#Paul questions?
+#cross validation with test data to see if the effect is causal?
+
 lm_plot_routine <- function(x,y) {
   model = lm(y ~ x)
   plot(x,y)
