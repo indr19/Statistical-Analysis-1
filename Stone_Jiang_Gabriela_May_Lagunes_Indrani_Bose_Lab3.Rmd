@@ -9,6 +9,13 @@ output:
     df_print: paged
 ---
 
+##########################################################################################
+QUESTIONS TO ASK
+1. Should we have pick variables and explain why we chose then, and perform regression on that set? Or, should do stepwise regression on all variables, let the model pick the best ones, and explain why those might be the best ones?
+2. When are transformations most useful? Should we use background knowledge, or use residual information to diagnose which is an outlier?
+##########################################################################################
+
+
 Strategy:
 1. eliminate variables (year, county)
 2. look at categorical variables (urban, west, central)
