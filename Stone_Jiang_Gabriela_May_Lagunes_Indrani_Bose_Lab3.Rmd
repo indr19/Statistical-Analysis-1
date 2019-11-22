@@ -13,8 +13,36 @@ output:
 QUESTIONS TO ASK
 1. Should we have pick variables and explain why we chose then, and perform regression on that set? Or, should do stepwise regression on all variables, let the model pick the best ones, and explain why those might be the best ones?
 2. When are transformations most useful? Should we use background knowledge, or use residual information to diagnose which is an outlier?
+3. Imputing variables: for missing values, take median for example; don't do this
 ##########################################################################################
 
+
+###
+Paul's OH:
+Measure ideally causal
+Take natural logs
+Transformations: when to transform variables?
+Probability greater than 1 is ok; not really probability due to collection process
+Quantile regression for conditional median (OLS is the conditional mean)
+###
+
+###
+
+Model 1a: things that make people afrad (4 probability variables) that deters crime, 
+
+For these three models:
+          %location could be important
+          %density/urban absorbs too much causality
+          %male absorbs the causality because then it will only reflect that
+          %police also absorbs too much because people more police means more crime is detected.
+          %tax could reflect how people vote; see paper
+          %demographics (minority, male) certainly increase prediction but even playing ground first (good moderator variable, but not mediator variable)
+          %mix shouldn't have too much effect.
+
+Model 2: ability for people to succeed without having to commit crime. Add in wage to improve prediction.
+
+Model 3: demographics added in; tax added in for attitude 
+###
 
 Strategy:
 1. eliminate variables (year, county)
@@ -40,8 +68,11 @@ WHEN TO TRANSFORM VARIABLES?
 
 START OF REPORT BELOW:
 
+#Introduction
 
-The provided data needed cleaning. We need to omit the last rows of the csv since they do not contain data. When we check for duplicated rows, there was one county (193) which was repeated twice. We also checked that all of the values were numerical. This was note the case for the prbconv variable (it was stored as a factor due to omitted rows having non-numerical values). This was converted to numerical.
+#Initial Data Cleaning
+
+First, we need to omit the last rows of the csv since they do not contain data. When we check for duplicated rows, there was one county (193) which was repeated twice. We also checked that all of the values were numerical. This was not the case for the prbconv variable (it was stored as a factor due to omitted rows having non-numerical values). This was converted to numerical.
 
 ```{r }
 library(dplyr)
@@ -110,9 +141,7 @@ print(u)
 print(w)
 ```
 
-All other variables are numeric and are also possible candidates.
-
-First, we wanted to get a sense of crmrte correlation with all numeric variables. We also parse our data into X (numeric variables) and y (crmrte)
+All other variables are numeric, and are also possible candidates for influencing crime rate. For future reference,we wanted to get a sense of crmrte correlation with all numeric variables. We also parse our data into X (numeric variables) and y (crmrte)
 
 ```{r }
 y <- data$crmrte
@@ -140,21 +169,53 @@ cor_df <- arrange(cor_df, desc(crmrte_cor))
 print(cor_df)
 ```
 
-It should be no surprise that density is the best solo predictor of crime rate. Highly dense population areas present more opportunities for crime, as well as a larger population of poorer individuals. We believe this variable is problematic for a causal model however because it obsorbs the causality from other variables. It does suggest that policies in more densely populated areas are likely more fruitful than sparsely populated areas.
-#ETC. 
+#Model 1
+
+For our initial model, we would like to focus on factors that deter people from committing crime. These include the probability variables of arrest, conviction, prison sentence, as well as the severity of punishment in average sentence days. We will call these variables the "fear factors;" namely, we believe the higher the chance someone believes they will be arrested, convicted, or sent to prison, the less likely they will commit a crime. Also, the more severely they believe the punishment to be (prison day sentences), the less likely they will commit a crime. 
 
 
-First, we would like to select the variables we think most likely cause crime. 
+Before performing EDA on the variables listed above, we note why we have chose to exclude the other variables in our base model:
 
-The first is the probability variables of arrest, conviction and prison sentence. These variables constitute the "fear factors;" namely, we believe the higher the chance someone believes they will be arrested, convicted, or sent to prison, the less likely they will commit a crime. Also, the more severely they believe the punishment to be (prison day sentences), the less likely they will commit a crime. Note that convicted is currently defined as convictions versus number of arrests. This variable will be converted to convictions versus offences, which is a comparable ratio as the arrested variable. The same goes for prison.
+The wage variables can either deter or motivate individuals to commit a crime and were excluded from this base model. We believe that the more satisfied someone is with their income, the less likely they will commit a crime because they are more likely to attain their desires without having to pursue illegal routes. Along the same lines, unemployment is likely to lead to increased crime rates. Too high of a wage, especially in blue collar jobs, means that more people who seek jobs in these areas but underperform are more likely to be fired. Minimum wage increases for example can "price out" some employees, because labor becomes more expensive, and as wage goes up, individuals paid that may be expected to do more, lowering the amount of workforce necessary, leading to greater unemployment. As a result, we believe wage can go either way. 
 
-The next is the wage variables. For blue collar jobs that are mostly manual labor, namely, construction, transportation/utilities/communication, and manufacturing, the higher the wage, the less affordable employees are, and as a result, most likely correlate with larger unemployed workforce. This especially affects lower education level young males, and possibly the minority populations who may come from socioeconomically disadvantaged backgrounds.
+Based on the correlation table above, it should be no surprise that density is the best solo predictor of crime rate. Highly dense population areas, as well as urban areas, present more opportunities for crime. There also tends to be a larger wage and wealth gap in these areas, which increases the rate of crime as people pursue illegal ways to get to the top. We believe this variable is problematic for a causal model however because it obsorbs the causality from other variables. Namely, crime rate is too heavily dependent on these variables. It does suggest that policies in more densely populated areas are likely more fruitful than sparsely populated areas. 
 
-For white collar jobs, including government, higher wages are correlated with higher crime rates. 
-#FIND REASON WHY?
+Location could be important. Different geographic areas may be more prone to crime due to cultural and socioeconomic differences. However, we would like a model that can be generalized.
 
-Interestingly, the police per capita is positively correlated with crime rate. We believe that police density is likely an effect of crime rate and not a cause. Namely, more police area required and therefore hired in areas of more crime. However, the opposite may also be true. The fact that there's more police could mean that more crime is detected and responded to, increasing the recorded number of criminal cases and perceived rate of crime. In addition, there is also bound to be a tipping point. If the density of police is extremely high, that likely acts as a major deterrent for criminals. We belive this will be an important predictor of crime rate.
+Male absorbs the causality because then it will only reflect that
 
+Interestingly, the police per capita is positively correlated with crime rate. We believe that police density is likely an effect of crime rate and not a cause. Namely, more police area required and therefore hired in areas of more crime. However, the opposite may also be true. The fact that there's more police could mean that more crime is detected and responded to, increasing the recorded number of criminal cases and perceived rate of crime. In addition, there is also bound to be a tipping point. If the density of police is extremely high, that likely acts as a major deterrent for criminals. We belive this will be an important predictor of crime rate. 
+
+Tax could reflect how people vote; see paper
+
+Demographics (minority, male) certainly increase prediction but even playing ground first (good moderator variable, but not mediator variable)
+
+Mix shouldn't have too much effect.
+
+#We need to include more reasons why from the original research paper
+
+First, we look at our data for probability variables, and average sentence days.
+
+```{r}
+
+fear_factors <- c('prbarr', 'prbconv', 'prbpris', 'avgsen')
+stargazer(data[, fear_factors], type='text', 
+          summary.stat = c("min", "p25", "median", "p75", "max", "median", "sd"))
+
+```
+
+Interestingly, we see that the probability of arrest and conviction variables can both exceed 1. Upon doing some external research, we believe this is ok.
+
+#Explain above further
+
+```{r}
+
+outlier_detector <- function(df, label_field) 
+
+```
+
+
+#PREVIOUS VERSION
 #need to perform automated residual detection
 
 In order to detect outliers in our data that may greatly influence our prediction model, we will perform pairwise correlation for all numerical variables with the crimerate, and determine the Cook's distance for all data points in the regression. Any variable for which there contains one more data points with a Cook's distance greater than or equal to 1 are typically considered influential outliers. These will all be examined closely as part of our EDA.
