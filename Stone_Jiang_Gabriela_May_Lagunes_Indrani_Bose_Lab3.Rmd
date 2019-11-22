@@ -39,7 +39,7 @@ For these three models:
           %demographics (minority, male) certainly increase prediction but even playing ground first (good moderator variable, but not mediator variable)
           %mix shouldn't have too much effect.
 
-Model 2: ability for people to succeed without having to commit crime. Add in wage to improve prediction.
+Model 2: ability for people to succeed without having to commit crime. Add in wage to improve prediction. However, use BACKWARDS AIC to optimize the AIC of the model in order to achieve parsimony. 
 
 Model 3: demographics added in; tax added in for attitude 
 ###
@@ -66,6 +66,14 @@ WHEN TO TRANSFORM VARIABLES?
 7. train/dev/test? on model generalization? 1000 fold validation?
 
 
+###
+Three models:
+
+Model 1: KEY interests -- should not perform very well; density, prbarr, police
+Model 2: BEST model; add in wage variables, demographics, others? We each need to experiment until we find the best model. Then we will reason.
+Model 3: Show robust to changes. Adding new variables do not influence prediction anymore.
+
+###
 START OF REPORT BELOW:
 
 #Introduction
@@ -141,7 +149,89 @@ print(u)
 print(w)
 ```
 
-All other variables are numeric, and are also possible candidates for influencing crime rate. For future reference,we wanted to get a sense of crmrte correlation with all numeric variables. We also parse our data into X (numeric variables) and y (crmrte)
+All other variables are numeric, and are also possible candidates for influencing crime rate.
+
+We now examine the crime rate variable on its own.
+
+```{r}
+
+summary(data$crmrte)
+hist(data$crmrte, 
+     main='Histogram of crime rates for different counties', 
+     xlab = 'Crime rate per person')
+
+```
+
+We can see that crime rate is greater than 0 for all counties. We can also see from this plot that crime rate is highly skewed toward larger values. Since we are performing inference analysis, we would like to interpret our model coefficients as how changes in explanatory variables affecs changes in crime rate. However, since the baseline crime is different for different counties, it makes more sense to transform crime rate into the log of crime rate This changes the interpretation from absolute changes in crime rates to percent changes (at least for small changes in crime rate since the percent interpretation is only accurate for differentially small changes), which makes comparisons across counties more comparable. For example, a 0.01 change in crime rate for the lowest county (0.005) is a much larger change than for the largest county (0.099), but a 1% change is comparable. As a result, we perform inference on the log of crime rate.
+
+
+We can visualize the transformed crime rate variable again.
+
+```{r}
+data$crmrte_abs <- data$crmrte
+data$crmrte <- log(data$crmrte)
+hist(data$crmrte, 
+     main='Histogram of crime rates for different counties', 
+     xlab = 'Log crime rate per person')
+```
+
+#explain and generate boxplot
+
+#Model 1
+
+##Key Variables
+For our initial model, we would like to focus on factors that intuition says should influence crime. We believe that there are four variables which represent deterrents to crime: probability variables of arrest, conviction, prison sentence, and the severity of punishment in average sentence days. We will call these variables the "fear factors;" namely, we believe the higher the chance someone believes they will be arrested, convicted, or sent to prison, the less likely they will commit a crime. Also, the more severely they believe the punishment to be (prison day sentences), the less likely they will commit a crime. Out of these four, we believe probability of arrest and probability of conviction will have the greatest effects. The reason is that a single arrest or convinction can permanently damage someone's record. For most people who have never committed crimes before, just the idea of possibly getting in trouble with the police could be enough to deter them. In addition, there are many crimes that result in fines, community service, and other forms of punishment that does not involve prison. Many criminals are likely not thinking about possibility or severity of prison sentences because they might feel even if arrested they can talk their way out of it. For heavy repeat offenders, they will likely prison sentence into account, but possibility of arrest is still a heavy influencer. As a result, we believe arrest and convinction are the most relevant variables.
+
+The wage variables can either deter or motivate individuals to commit a crime and were excluded from this base model. We believe that the more satisfied someone is with their income, the less likely they will commit a crime because they are more likely to attain their desires without having to pursue illegal routes. Along the same lines, unemployment is likely to lead to increased crime rates. Too high of a wage, especially in blue collar jobs, means me employees can be "priced out" some employees. As wage goes up, individuals paid that wage are expected to do more, lowering the amount of workforce necessary, leading to greater unemployment. As a result, we believe wage can go either way. For our base model, we will look at only what we consider traditional blue collar jobs: construction and manufacturing. We also take the log of these variables: this is common practice as we want to measure percent changes in salary, and not absolute changes.
+
+Before performing EDA on the variables listed above, we note why we have chose to exclude the other variables in our base model:
+
+We believe that density should be a positive predictor of crime. Highly dense population areas present more opportunities for crime. There also tends to be a larger wage and wealth gap in these areas, which increases the rate of crime as people will be tantalized to use illegal ways to get to the top. However, this may absorb too much of the causal effect.
+
+We also believe that the police per capita is a key variable that would absorb too much of the model. Namely, more police are required for regions of greater crime, and so counties with more crime are more likely to have more police. In addition, the fact that there's more police could mean that more crime is detected and responded to, increasing the recorded number of criminal cases and perceived rate of crime. However, we also expect there to be a tipping point. If the density of police is extremely high, that likely acts as a major deterrent for criminals. As a result, police and crime rate are very intricately linked and want to avoid this for our base model.
+
+Location could be important. Different geographic areas may be more prone to crime due to cultural and socioeconomic differences. However, we would like a model that can be generalized.
+
+Male absorbs the causality because then it will only reflect that.
+
+Tax could reflect how people vote; see paper
+
+Demographics (minority, male) certainly increase prediction but even playing ground first (good moderator variable, but not mediator variable)
+
+Mix shouldn't have too much effect.
+
+#Explain above further
+
+```{r}
+
+#function for outlier detection
+#we will define outliers as 1.5*IQR above the 1st quartiler or 1.5*IQR below the third
+outlier_detector <- function(df, outlier_field) {
+  iqr <- IQR(data[,outlier_field])
+  upper <- quantile(df[, outlier_field], 0.75)
+  lower <- quantile(df[, outlier_field], 0.25)
+  mask <- (df[, outlier_field] > (upper + 1.5 * iqr)) | (df[, outlier_field] < (lower - 1.5 * iqr))
+  return (df[mask, ])
+}
+
+```
+
+#Univariate analysis of each of the 4 variables
+
+```{r}
+#first model
+model_1 <- lm(crmrte ~ prbarr + prbconv + log(wcon) + log(wmfg), data = data)
+print(model_1)
+```
+
+##Coefficient interpretation
+For our first model, the coefficient in density represents the percent change in crime per person per change in people per square mile, while keeping the other three variables constant. This is positive as expected, meaning that more density locations tend to have more crime. The other interpretations are analogous: prbarr is negative, meaning the greater the chance someone gets arrested, the less likely they will commit a crime. FINISH THIS UP. Interestingly, the wage variables appears to have played very little role with very small coefficients.
+
+#Model 2
+
+#model_2 <- lm(formula = crmrte ~ prbarr + prbconv + polpc + pctmin80 + log(wcon) + log(wmfg) + log(wfed) + log(wsta), data=data)
+
+For model 2, we wanted to add in other covariates meant to increase accuracy of prediction. To do this, we wanted to first get a sense of crmrte correlation with all numeric variables. We also parse our data into X (numeric variables) and y (crmrte)
 
 ```{r }
 y <- data$crmrte
@@ -169,28 +259,37 @@ cor_df <- arrange(cor_df, desc(crmrte_cor))
 print(cor_df)
 ```
 
-#Model 1
+We took a closer look at wage variables:
 
-For our initial model, we would like to focus on factors that deter people from committing crime. These include the probability variables of arrest, conviction, prison sentence, as well as the severity of punishment in average sentence days. We will call these variables the "fear factors;" namely, we believe the higher the chance someone believes they will be arrested, convicted, or sent to prison, the less likely they will commit a crime. Also, the more severely they believe the punishment to be (prison day sentences), the less likely they will commit a crime. 
+```{r}
+nonwage_variables <- c('prbarr', 'prbconv', 'prbpris', 'avgsen',
+                       'polpc', 'density', 'taxpc',
+                       'pctymle', 'pctmin80', 'mix',
+                       'urban', 'central', 'west')
 
+wage_variables <- c('wtrd', 'wfir', 'wser', 'wfed', 'wsta', 'wloc',
+                    'wcon', 'wtuc', 'wmfg')
 
-Before performing EDA on the variables listed above, we note why we have chose to exclude the other variables in our base model:
+X_non_wage <- data[, names(data) %in% nonwage_variables]
+X_wage <- lapply(data[, names(data) %in% wage_variables], log)
 
-The wage variables can either deter or motivate individuals to commit a crime and were excluded from this base model. We believe that the more satisfied someone is with their income, the less likely they will commit a crime because they are more likely to attain their desires without having to pursue illegal routes. Along the same lines, unemployment is likely to lead to increased crime rates. Too high of a wage, especially in blue collar jobs, means that more people who seek jobs in these areas but underperform are more likely to be fired. Minimum wage increases for example can "price out" some employees, because labor becomes more expensive, and as wage goes up, individuals paid that may be expected to do more, lowering the amount of workforce necessary, leading to greater unemployment. As a result, we believe wage can go either way. 
+X_wage_transformed <- cbind(X_non_wage, X_wage)
 
-Based on the correlation table above, it should be no surprise that density is the best solo predictor of crime rate. Highly dense population areas, as well as urban areas, present more opportunities for crime. There also tends to be a larger wage and wealth gap in these areas, which increases the rate of crime as people pursue illegal ways to get to the top. We believe this variable is problematic for a causal model however because it obsorbs the causality from other variables. Namely, crime rate is too heavily dependent on these variables. It does suggest that policies in more densely populated areas are likely more fruitful than sparsely populated areas. 
+print(cor(as.data.frame(X_wage)))
+```
+Interestingly, wsta is not correlated with anything very strongly, so that's a good strong independent predictor. wfed is the largest single univariate predictor. Both are government jobs with the potential to influence change. Explain why these might influence crime rates. Add back some government, white-collar jobs.
 
-Location could be important. Different geographic areas may be more prone to crime due to cultural and socioeconomic differences. However, we would like a model that can be generalized.
+Also add back police.
 
-Male absorbs the causality because then it will only reflect that
+Add back demographics back. Unfortunately certain people are more likely to be tagged for crimes. Young male won't be used because crime is specified. Young male can't commit some of the white collar crimes for example. If the data was only petty theft then maybe we would consider it.
 
-Interestingly, the police per capita is positively correlated with crime rate. We believe that police density is likely an effect of crime rate and not a cause. Namely, more police area required and therefore hired in areas of more crime. However, the opposite may also be true. The fact that there's more police could mean that more crime is detected and responded to, increasing the recorded number of criminal cases and perceived rate of crime. In addition, there is also bound to be a tipping point. If the density of police is extremely high, that likely acts as a major deterrent for criminals. We belive this will be an important predictor of crime rate. 
+#Model 3
 
-Tax could reflect how people vote; see paper
+Adding back density no longer influences the adjusted r squared value! The model_2 is already very robust. 23 predictors increase the adjusted r squared by very little compared to using just 8.
 
-Demographics (minority, male) certainly increase prediction but even playing ground first (good moderator variable, but not mediator variable)
+#other useful discussions
+Other variables include the probability variables of arrest, conviction, prison sentence, as well as the severity of punishment in average sentence days. We will call these variables the "fear factors;" namely, we believe the higher the chance someone believes they will be arrested, convicted, or sent to prison, the less likely they will commit a crime. Also, the more severely they believe the punishment to be (prison day sentences), the less likely they will commit a crime. 
 
-Mix shouldn't have too much effect.
 
 #We need to include more reasons why from the original research paper
 
@@ -205,15 +304,6 @@ stargazer(data[, fear_factors], type='text',
 ```
 
 Interestingly, we see that the probability of arrest and conviction variables can both exceed 1. Upon doing some external research, we believe this is ok.
-
-#Explain above further
-
-```{r}
-
-outlier_detector <- function(df, label_field) 
-
-```
-
 
 #PREVIOUS VERSION
 #need to perform automated residual detection
@@ -257,17 +347,17 @@ X$prbpris_offense <- X$prbconv_offense * X$prbpris
 X <- X[-2:-3] #remove original prbarr, prbpris variable in factor of transformed
 
 train_X <- cbind(X, C)
-#nonwage_variables <- c('prbarr', 'prbconv', 'prbpris', 'avgsen',
-#                       'polpc',
-#                       'pctymle', 'pctmin80')
+nonwage_variables <- c('prbarr', 'prbconv', 'prbpris', 'avgsen',
+                       'polpc',
+                       'pctymle', 'pctmin80')
 
-#wage_variables <- c('wtrd', 'wfir', 'wser', 'wfed', 'wsta', 'wloc',
-#                    'wcon', 'wtuc', 'wmfg')
+wage_variables <- c('wtrd', 'wfir', 'wser', 'wfed', 'wsta', 'wloc',
+                    'wcon', 'wtuc', 'wmfg')
 
-#X_non_wage <- data[, names(data) %in% nonwage_variables]
-#X_wage <- lapply(data[, names(data) %in% wage_variables], log)
+X_non_wage <- data[, names(data) %in% nonwage_variables]
+X_wage <- lapply(data[, names(data) %in% wage_variables], log)
 
-#X_stepwise_set1 <- cbind(X_non_wage, X_wage)
+X_stepwise_set1 <- cbind(X_non_wage, X_wage)
 
 model_upper <- lm(y ~ ., data=train_X)
 model_lower <- lm(y ~ 1, data=train_X)
