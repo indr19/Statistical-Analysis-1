@@ -82,7 +82,7 @@ START OF REPORT BELOW:
 
 First, we need to omit the last rows of the csv since they do not contain data. When we check for duplicated rows, there was one county (193) which was repeated twice. We also checked that all of the values were numerical. This was not the case for the prbconv variable (it was stored as a factor due to omitted rows having non-numerical values). This was converted to numerical.
 
-```{r }
+```{r message=FALSE, warning = FALSE}
 library(dplyr)
 library(ggplot2)
 library(tidyr)
@@ -154,12 +154,10 @@ All other variables are numeric, and are also possible candidates for influencin
 We now examine the crime rate variable on its own.
 
 ```{r}
-
 summary(data$crmrte)
 hist(data$crmrte, 
      main='Histogram of crime rates for different counties', 
      xlab = 'Crime rate per person')
-
 ```
 
 We can see that crime rate is greater than 0 for all counties. We can also see from this plot that crime rate is highly skewed toward larger values. Since we are performing inference analysis, we would like to interpret our model coefficients as how changes in explanatory variables affecs changes in crime rate. However, since the baseline crime is different for different counties, it makes more sense to transform crime rate into the log of crime rate This changes the interpretation from absolute changes in crime rates to percent changes (at least for small changes in crime rate since the percent interpretation is only accurate for differentially small changes), which makes comparisons across counties more comparable. For example, a 0.01 change in crime rate for the lowest county (0.005) is a much larger change than for the largest county (0.099), but a 1% change is comparable. As a result, we perform inference on the log of crime rate.
@@ -230,6 +228,7 @@ For our first model, the coefficient in density represents the percent change in
 #Model 2
 
 #model_2 <- lm(formula = crmrte ~ prbarr + prbconv + polpc + pctmin80 + log(wcon) + log(wmfg) + log(wfed) + log(wsta), data=data)
+#model2<-lm(data$crmrte ~ prbarr + prbconv + polpc + pctmin80 + wcon + wmfg + wfed + wsta, data=X_wage_transformed)
 
 For model 2, we wanted to add in other covariates meant to increase accuracy of prediction. To do this, we wanted to first get a sense of crmrte correlation with all numeric variables. We also parse our data into X (numeric variables) and y (crmrte)
 
@@ -279,7 +278,7 @@ print(cor(as.data.frame(X_wage)))
 ```
 Interestingly, wsta is not correlated with anything very strongly, so that's a good strong independent predictor. wfed is the largest single univariate predictor. Both are government jobs with the potential to influence change. Explain why these might influence crime rates. Add back some government, white-collar jobs.
 
-Also add back police.
+Also add back police. Reason might be more police there is more arrests going to be made. 
 
 Add back demographics back. Unfortunately certain people are more likely to be tagged for crimes. Young male won't be used because crime is specified. Young male can't commit some of the white collar crimes for example. If the data was only petty theft then maybe we would consider it.
 
@@ -287,6 +286,12 @@ Add back demographics back. Unfortunately certain people are more likely to be t
 
 Adding back density no longer influences the adjusted r squared value! The model_2 is already very robust. 23 predictors increase the adjusted r squared by very little compared to using just 8.
 
+#MAKE SURE ALSO THAT MODEL 2's coefficients don't change that much compared to model 3
+
+```{r}
+model3<- lm(data$crmrte ~ ., data=X_wage_transformed)
+
+```
 #other useful discussions
 Other variables include the probability variables of arrest, conviction, prison sentence, as well as the severity of punishment in average sentence days. We will call these variables the "fear factors;" namely, we believe the higher the chance someone believes they will be arrested, convicted, or sent to prison, the less likely they will commit a crime. Also, the more severely they believe the punishment to be (prison day sentences), the less likely they will commit a crime. 
 
