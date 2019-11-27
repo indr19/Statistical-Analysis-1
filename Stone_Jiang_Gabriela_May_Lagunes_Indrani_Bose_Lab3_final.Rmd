@@ -548,7 +548,12 @@ The probability of arrest and is more than 3x state average, as is the probabili
 
 We also believe percent minority will be a good independent predictor of crime. The unfortunately truth is that especially in rural regions, minorities are more likely to targets for the police. Their behavior tends to be scrutinized more, and sometimes even activities considered non-criminal could be considered criminal for minorities. In addition, due to their socialeconomic position, minorities statistically are poorer, which would be an exogenous variable correlated with crime. In our case, young male won't be considered a priority because the nature of the crime is not specified. Young male can't commit some of the white collar crimes for example. If the data was only for example, petty theft, perhaps young male would be a good predictor.
 
+#Explain this more just so we have something to add to our model later
+Due to the success of the fear variables above, we also believe that probability and length of prison sentence are both potentially important.
+
 Finally, while we see that geography is important in some cases, we are uncertain whether it will be a strong predictor. 
+
+#R^2 for effect size
 
 #Conclude that at this point we believe variables that should be added back (wsta, wser, police, minorties); see if forward selection with AIC optimization supports this. General strategy: Optimize to adjusted R^2 and AIC, and once we have the full model confirm at the very end that all of our coefficients are significant.
 
@@ -573,7 +578,7 @@ AIC.mixed
 model_2 <- AIC.mixed
 ```
 
-The AIC mixed model suggests a lot of the same variables are from our EDA above, with addition of two variables we did not expect to include, which are percent young male, and taxpc, or tax revenue per capita. 
+First, we see that the insignificant variables in our first model did not show up in this AIC optimized model, which is a good sign as we likely would not want to include wages of blue collar jobs in our second model. The AIC mixed model also suggests that a lot of the same variables are from our EDA above, with addition of two variables we did not expect to include, which are percent young male, and taxpc, or tax revenue per capita, and the exclusion of probability of conviction and length of prison sentence which we thought would be important.
 #talk a bit more above.
 
 #CLM assumptions look good; zero conditional mean satisfied; homoskedasticity and normality no but that's ok
@@ -582,7 +587,28 @@ The AIC mixed model suggests a lot of the same variables are from our EDA above,
 coeftest(AIC.mixed, vcov. = vcovHC, df=dim(X_wage_transformed)[1] - 8 - 1)
 ```
 
-Beautiful! Everything is highly significant except our theory above about young male and tax which we did not even consider.
+Beautiful! Everything is highly significant except our theory above about young male and tax which we did not even consider. Since these variables are were not in our original hypothesis, let's check their significance. We don't expect much co-linearity between these two variables, but we can test whether they are jointly significant. 
+
+#explain a bit more
+
+```{r}
+linearHypothesis(AIC.mixed, c("taxpc = 0", "pctymle = 0"), vcov = vcovHC)
+```
+
+We will remove these variables from our model. 
+
+MODEL 2 removing these variables.
+
+ADD exclusion of probability of conviction and length of prison sentence which we thought would be important and see how it affects the model.
+
+Now do a "RESET" test to see if non-linear combinations of these variables might help further improve the model
+
+TEST if the effect of state and federal wages on crime is the same.
+
+TEST if probability of arrest versus conviction is the same. Which fear is more important, to convict or to just give more arrests?
+```{r}
+#linearHypothesis(model2, "prbarr = prbconv", vcov = vcovHC)
+```
 
 \section{Model 3}
 
