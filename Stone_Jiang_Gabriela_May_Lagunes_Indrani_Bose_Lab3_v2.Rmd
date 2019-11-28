@@ -406,7 +406,6 @@ Based on the statistical test, we see that both the probability of arrest and pr
 
 #model 2 <- lm(data$crmrte ~ prbarr + prbconv + polpc + taxpc + pctmin80 + pctymle + wfed + wsta, data = X_wage_transformed)
 
-
 For model 2, we wanted to add in other covariates meant to increase accuracy of prediction. To do this, we wanted to first get a sense of crmrte correlation with all numeric variables. We also parse our data into X (numeric variables) and y (crmrte)
 
 ```{r }
@@ -514,7 +513,7 @@ ggplot(data = heatmap.data, aes(x=Var1, y=Var2, fill=value)) +
   theme(plot.title = element_text(hjust = 0.5)) 
 
 ```
-Unfortunately, with the imputatation of the incorrect data point. However, wser still has weak correlation with all other wage variables and represents a good independent predictor in the wage category.
+Unfortunately, with the imputatation of the incorrect data point, we see that wser is now well-correlated with other wage variables. However, wsta still has weak correlation with all other wage variables and represents a good independent predictor in the wage category.
 
 Next, we state above that we would like to include police because more police could result in stronger detection of crime.
 #explain a bit more
@@ -546,7 +545,7 @@ stargazer(report,type='text', summary = FALSE)
 
 The probability of arrest and is more than 3x state average, as is the probability of conviction. The police force is 4.5 times the state average. More police in a county means more crime gets detected, and more police means that more crime gets responded to in a timely fashion. Interestingly, the rate of crime is about 5-6x less than state average. This is actually consistent with the analysis above. The capacity of the police force to respond to crime likely exceeds the rate of crime. As a result, people are less likely to commit crime because they know they will be caught, and at the same time any crime that does get committed is likely dealt with leading to arrests and convictions. All in all, this is to say that we actually believe this is a legitimate data point, and as a result will keep it in our regression analysis.
 
-We also believe percent minority will be a good independent predictor of crime. The unfortunately truth is that especially in rural regions, minorities are more likely to targets for the police. Their behavior tends to be scrutinized more, and sometimes even activities considered non-criminal could be considered criminal for minorities. In addition, due to their socialeconomic position, minorities statistically are poorer, which would be an exogenous variable correlated with crime. In our case, young male won't be considered a priority because the nature of the crime is not specified. Young male can't commit some of the white collar crimes for example. If the data was only for example, petty theft, perhaps young male would be a good predictor.
+We also believe percent minority will be a good independent predictor of crime. The unfortunately truth is that especially in rural regions, minorities are more likely to targets for the police. Their behavior tends to be scrutinized more, and sometimes even activities considered non-criminal could be considered criminal for minorities. In addition, due to their socialeconomic position, minorities statistically are poorer, which could be an exogenous variable correlated with crime. In our case, young male won't be considered a priority because the nature of the crime is not specified. Young male can't commit some of the white collar crimes for example. If the data was only for example, petty theft, perhaps young male would be a good predictor.
 
 #Explain this more just so we have something to add to our model later
 Due to the success of the fear variables above, we also believe that probability and length of prison sentence are both potentially important.
@@ -599,7 +598,7 @@ We will remove these variables from our model.
 
 MODEL 2 removing these variables.
 
-ADD exclusion of probability of conviction and length of prison sentence which we thought would be important and see how it affects the model.
+ADD exclusion of probability of conviction and length of prison sentence which we thought would be important and see how it affects the model. See that they are not. Guess multicollinear so check matrix. See if significant if we remove arrest/conviction. Yes but worse R^2 so keep arrest/convict
 
 Now do a "RESET" test to see if non-linear combinations of these variables might help further improve the model
 
