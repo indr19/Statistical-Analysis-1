@@ -1,0 +1,151 @@
+---
+title: "lab3_submission1"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library("DataExplorer")
+library("dplyr")
+library("tidyr")
+library("stargazer")
+library("corrplot")
+library("ggplot2")
+setwd("/Users/indranibose/Documents/UCB/W203/lab_3")
+
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+crime <- read.csv("crime_v2.csv",header = T, stringsAsFactors = F)
+str(crime)
+```
+\section{Exploratory Data Analysis (EDA)}
+
+\subsection What do you want to measure that will be relevant to the concerns of the political campaign?
+In this dataset, our predictor variable(y) is crmrte
+
+
+Checking the dimension of the input dataset and the time of variables.
+Checking for missing values
+Check for duplicate data and remove
+
+```{r}
+sum(!complete.cases(crime))
+crime <- distinct(crime, .keep_all=T)
+
+```
+There are 25 variables with 97 observations. 
+First we need to convert all the variables to one datatype e.i. number
+Out of this there are 6 observations which have NA values and hence not complete.
+We convert the prbarr and prbconv into numeric variables to faciliate data computations later.
+\subsection Data Omiting
+Since crime occurs in all counties and in same year, we omit the following 2 varibles form our analysis
+1.county
+2.year
+\subsection Data Cleaning
+```{r}
+crime <- crime %>% drop_na()
+crime$prbarr <- as.numeric(as.character(crime$prbarr))
+crime$prbconv <- as.numeric(as.character(crime$prbconv))
+```
+\subsection Data Analysis
+#What do you want to measure? Make sure you identify variables that will be relevant to theconcerns of the political campaign.
+#Varibale Categories
+Dependendent variable = crmrte
+Independent varibale classes:
+Income::wcon","wtuc","wtrd","wfir","wser","wmfg","wfed","wsta","wloc"
+Economic health::taxpc
+Population::"density", "pctymle"
+Geography:: county ,west,central,urban,pctmin80
+Crime_Severity::avgsen
+Crime_type::mix
+All the crimes occue in 1987. Hence we keep the year as contant and not include the same in regression
+
+Crimerate generally is influenced largely by economy , geography , population and income.
+It should be negatively impacted by police per capita.
+Hence looking closely at those varibales should be insightful for a campaigner.
+
+```{r , echo=FALSE}
+crime<-select(crime,-c("year"))
+crime.cor <- cor(crime)
+
+library(ggcorrplot)
+
+ggcorrplot(crime.cor)
+ggcorrplot(crime.cor,hc.order = TRUE, type = "upper",
+     outline.col = "white")
+
+```
+#What covariates help you identify a causal effect? What covariates are problematic, either
+due to multicollinearity, or because they will absorb some of a causal effect you want to
+measure?
+Looking at the correlation matrix, its apaprent that the independent variables postively correlated to the crimerate are income(wcon","wtuc","wtrd","wfir","wmfg","wfed","wcon","wloc") except wsta which is not intutive. 
+There is a high negative correlation with conviction, arrest
+Hence we can look more closely into the income catgeory to understand the data regarding the same. However we see that wages are highly correlated to each other which might become a problem.
+Hence we would like to test the income varibales and its relation to crimerate.
+Model 1 Approach : With Wages
+Model 2 Approach : Wages with population parameters(urban,density,central)
+#What transformations should you apply to each variable? This is very important becausetransformations can reveal linearities in the data, make our results relevant, or help us meet model assumptions.
+```{r}
+#LogTransformations for crime rate
+summary(crime$crmrte)
+hist(crime$crmrte, 
+     main='Histogram of crime rates', 
+     xlab = 'Crime rate')
+crime$crmrte=log(crime$crmrte)
+hist(crime$crmrte, 
+     main='Histogram of crime rates', 
+     xlab = 'Crime rate')
+
+```
+Lets look closer at the wage variable
+All the wage data is skewed except wcon, we perform a log transformation for all wage varibales except wcon.
+```{r}
+summary(crime$wcon)
+hist(crime$wcon, 
+     main='Histogram of contruction wages', 
+     xlab = 'Crime rate')
+
+```
+Contruction wages present more or less normal ditribution. Hence no log tranformation needed.
+```{r}
+wage_variables <- c('wtrd', 'wfir', 'wser', 'wfed', 'wsta', 'wloc','wcon',
+                    'wtuc', 'wmfg')
+
+X_wage <- lapply(crime[, names(crime) %in% wage_variables], log)
+print(cor(as.data.frame(X_wage)))
+wages.cor<-cor(as.data.frame(X_wage))
+ggcorrplot(wages.cor,hc.order = TRUE,
+     outline.col = "white")
+
+```
+#4.Are your choices supported by EDA?
+wtuc shows as outlier. It might have an icorrect data point.
+There is strong correlation between wmfg,wfir,wtrd,wfed which suggests they have similar income trends.
+
+#Model 1
+#First Model with only wage varibales
+```{r}
+model_1 <- lm(crmrte ~ log(wtrd)+ log(wfir)+log(wser)+log(wfed)+log(wsta)+log(wloc)+log(wcon)+log(wtuc)+log(wmfg), data = crime)
+summary(model_1)$r.squared
+print(model_1)
+```
+#Model 2
+#Lets check Correlations of all variables in the data frame
+#Since population parameters have strong correalation with crime rate, lets add teh varibales to teh model
+#Model 2 Approach : Wages with population parameters(urban,density,central)
+
+```{r}
+model_2 <- lm(crmrte ~ log(wtrd)+ log(wfir)+log(wser)+log(wfed)+log(wsta)+log(wloc)+log(wcon)+log(wtuc)+log(wmfg)+urban+density+central, data = crime)
+summary(model_2)$r.squared
+print(model_2)
+```
+Adding of population parameters do not improve the varince of fitted values.
+
+
